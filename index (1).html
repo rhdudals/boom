@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>폭탄 해체반</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: 폭탄 제어판 한 화면 — 위 빨간 LED 타이머, 가운데 해제 코드(화살표 줄), 아래 방향키 패드. 의도적으로 어두운 단일 테마 */
+:root{
+  --bg:#121416; --panel:#1c2024; --metal:#2a3036; --edge:#3a424a; --ink:#e7ebee; --muted:#86919b;
+  --led:#ff3b30; --led-dim:#3a1513; --hazard:#f5c518; --ok:#42d37a;
+  --display:"Black Han Sans",system-ui,sans-serif;
+  --mono:"Share Tech Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--mono);padding-inline:16px;padding-block:20px;display:flex;justify-content:center;overflow-x:hidden}
+body.flash{animation:redflash .25s}
+@keyframes redflash{50%{background:#3a0d0b}}
+.box{width:100%;max-width:640px;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(28px,6vw,40px);margin:0;line-height:1}
+.stats{display:flex;gap:16px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink);font-size:18px;margin-left:4px}
+.bomb{position:relative;background:var(--panel);border:2px solid var(--edge);border-radius:18px;padding:22px 20px 24px;display:flex;flex-direction:column;gap:20px;align-items:center}
+.bomb::before{content:"";position:absolute;left:0;right:0;top:0;height:10px;border-radius:16px 16px 0 0;background:repeating-linear-gradient(-45deg,var(--hazard) 0 12px,#111 12px 24px);opacity:.9}
+.bomb.shake{animation:shake .3s}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+.timer{margin-top:6px;background:#0a0b0c;border:2px solid var(--metal);border-radius:10px;padding:8px 22px;font-size:clamp(54px,14vw,84px);line-height:1;color:var(--led);text-shadow:0 0 14px rgba(255,59,48,.7);font-variant-numeric:tabular-nums;letter-spacing:.04em;position:relative}
+.timer::before{content:"88.88";position:absolute;inset:8px 22px;color:var(--led-dim);text-shadow:none;z-index:0}
+.timer span{position:relative;z-index:1}
+.timer.low{animation:blink .5s steps(2) infinite}
+@keyframes blink{50%{color:#7a1a15;text-shadow:none}}
+.fuse{width:100%;height:8px;background:var(--metal);border-radius:4px;overflow:hidden}
+.fuse i{display:block;height:100%;background:linear-gradient(90deg,var(--hazard),var(--led));width:100%;transition:width .1s linear}
+.label{font-size:12px;letter-spacing:.2em;color:var(--muted)}
+.code{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;min-height:56px}
+.code span{width:48px;height:52px;display:grid;place-items:center;border-radius:10px;background:var(--metal);border:2px solid var(--edge);font-size:28px;color:var(--ink);transition:background .1s,border-color .1s}
+.code span.done{background:#173b25;border-color:var(--ok);color:var(--ok)}
+.code span.next{border-color:var(--hazard);box-shadow:0 0 0 3px rgba(245,197,24,.2)}
+.msg{font-size:14px;min-height:1.4em;text-align:center;color:var(--muted)}
+.pad{display:grid;grid-template-columns:repeat(3,72px);grid-template-rows:repeat(2,64px);gap:8px;justify-content:center}
+.pad button{font-family:var(--mono);font-size:30px;background:var(--metal);color:var(--ink);border:2px solid var(--edge);border-radius:12px;cursor:pointer;touch-action:manipulation;box-shadow:0 4px 0 #0b0c0d}
+.pad button:active,.pad button.press{transform:translateY(3px);box-shadow:0 1px 0 #0b0c0d;background:var(--edge)}
+.pad .u{grid-column:2}.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+.overlay{position:absolute;inset:0;border-radius:16px;background:rgba(18,20,22,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+.overlay h2{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,54px);margin:0;line-height:1.05}
+.overlay h2.boom{color:var(--led)}
+.overlay p{margin:0;color:var(--muted);font-size:14px;line-height:1.7;max-width:38ch}
+.overlay p b{color:var(--ink)}
+.btn{font-family:var(--display);font-size:22px;border:0;border-radius:999px;padding:12px 38px;background:var(--hazard);color:#111;cursor:pointer}
+.btn:focus-visible,.pad button:focus-visible,.sound:focus-visible{outline:3px solid var(--hazard);outline-offset:2px}
+.sound{font-family:var(--mono);font-size:12px;background:none;border:1px solid var(--edge);color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer}
+.tip{font-size:12px;color:var(--muted);margin:0;text-align:center}
+.boomfx{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,#fff 0,#ffb020 20%,#ff3b30 45%,transparent 75%);opacity:0}
+.boomfx.go{animation:boom .9s ease-out}
+@keyframes boom{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.2)}}
+@media (prefers-reduced-motion:reduce){.bomb.shake,.boomfx.go,body.flash,.timer.low{animation:none}}
+@media (max-width:380px){.pad{grid-template-columns:repeat(3,64px)}.code span{width:40px;height:46px;font-size:24px}}
+</style>
+</head>
+<body>
+
+<div class="box">
+  <div class="top">
+    <h1>폭탄 해체반</h1>
+    <div class="stats">
+      <div>해체<b id="defused">0</b></div>
+      <div>점수<b id="score">0</b></div>
+      <div>최고<b id="best">0</b></div>
+    </div>
+  </div>
+
+  <div class="bomb" id="bomb">
+    <div class="timer" id="timerBox"><span id="timer">20.00</span></div>
+    <div class="fuse"><i id="fuse"></i></div>
+    <div class="label">해제 코드 입력</div>
+    <div class="code" id="code"></div>
+    <div class="msg" id="msg" aria-live="polite"></div>
+    <div class="pad" id="pad">
+      <button class="u" data-k="U" aria-label="위">↑</button>
+      <button class="l" data-k="L" aria-label="왼쪽">←</button>
+      <button class="d" data-k="D" aria-label="아래">↓</button>
+      <button class="r" data-k="R" aria-label="오른쪽">→</button>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <h2 id="ovTitle">폭탄이 작동 중</h2>
+      <p id="ovText">화면의 화살표 코드를 <b>방향키</b>(또는 아래 버튼)로 순서대로 입력하세요. 하나를 해체하면 시간이 조금 늘어나고, 다음 폭탄은 코드가 더 길어져요. <b>틀리면 시간이 깎이고 처음부터.</b></p>
+      <button class="btn" id="start">해체 시작</button>
+      <button class="sound" id="sound" aria-pressed="true">소리 켜짐</button>
+    </div>
+  </div>
+  <p class="tip">PC는 키보드 방향키나 WASD, 휴대폰은 화면 버튼으로 하면 돼요.</p>
+</div>
+<div class="boomfx" id="boomfx"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const ARROW={U:"↑",D:"↓",L:"←",R:"→"};
+const KEYMAP={ArrowUp:"U",ArrowDown:"D",ArrowLeft:"L",ArrowRight:"R",w:"U",s:"D",a:"L",d:"R",W:"U",S:"D",A:"L",D:"R"};
+const START=20,MAXT=30;
+let seq=[],pos=0,time=START,running=false,last=0,defused=0,score=0,best=0,sound=true,nextTick=0,roundStart=0;
+try{best=+localStorage.getItem("bomb-squad-best")||0}catch(e){}
+$("best").textContent=best;
+
+/* 소리 */
+let ac=null;
+function audio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}return ac}
+function beep(f,d=.06,type="square",v=.08){if(!sound)return;const a=audio();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,a.currentTime);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+d);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+d)}
+function boomSound(){if(!sound)return;const a=audio();if(!a)return;const len=a.sampleRate*1.2,buf=a.createBuffer(1,len,a.sampleRate),ch=buf.getChannelData(0);for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5);const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();f.type="lowpass";f.frequency.value=600;g.gain.value=.6;s.buffer=buf;s.connect(f).connect(g).connect(a.destination);s.start()}
+
+function newBomb(){
+  const len=Math.min(12,4+Math.floor(defused*0.6));
+  const ks=["U","D","L","R"];seq=Array.from({length:len},()=>ks[Math.floor(Math.random()*4)]);pos=0;roundStart=time;
+  renderCode();
+}
+function renderCode(){
+  $("code").innerHTML=seq.map((k,i)=>`<span class="${i<pos?"done":i===pos?"next":""}">${ARROW[k]}</span>`).join("");
+}
+function press(k){
+  if(!running)return;
+  const btn=document.querySelector(`.pad [data-k="${k}"]`);btn.classList.add("press");setTimeout(()=>btn.classList.remove("press"),90);
+  if(k===seq[pos]){
+    pos++;beep(520+pos*40,.05);
+    if(pos===seq.length){
+      defused++;
+      const bonus=Math.max(1.2,4-defused*0.15);
+      const pts=seq.length*10+Math.round(time*2);
+      score+=pts;time=Math.min(MAXT,time+bonus);
+      msg(`해체 성공! +${bonus.toFixed(1)}초 · +${pts}점`,"var(--ok)");
+      beep(880,.08,"sine",.1);setTimeout(()=>beep(1320,.12,"sine",.1),80);
+      stats();newBomb();
+    }else renderCode();
+  }else{
+    time=Math.max(0,time-1.5);pos=0;renderCode();
+    msg("틀렸다! −1.5초, 처음부터","var(--led)");beep(110,.25,"sawtooth",.12);
+    const b=$("bomb");b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");
+    document.body.classList.remove("flash");void document.body.offsetWidth;document.body.classList.add("flash");
+  }
+}
+function msg(t,c){$("msg").textContent=t;$("msg").style.color=c}
+function stats(){$("defused").textContent=defused;$("score").textContent=score}
+
+function loop(now){
+  if(!running)return;
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  time-=dt;
+  if(time<=0){time=0;draw();return explode()}
+  nextTick-=dt;
+  if(nextTick<=0){beep(time<5?1400:900,.03,"square",time<5?.09:.04);nextTick=time<5?.25:time<10?.5:1}
+  draw();requestAnimationFrame(loop);
+}
+function draw(){
+  $("timer").textContent=time.toFixed(2).padStart(5,"0");
+  $("fuse").style.width=(time/MAXT*100)+"%";
+  $("timerBox").classList.toggle("low",time<5&&running);
+}
+function start(){
+  audio()?.resume?.();
+  time=START;defused=0;score=0;stats();msg("","");
+  $("overlay").hidden=true;running=true;newBomb();last=performance.now();nextTick=0;
+  requestAnimationFrame(loop);
+}
+function explode(){
+  running=false;boomSound();
+  const f=$("boomfx");f.classList.remove("go");void f.offsetWidth;f.classList.add("go");
+  const b=$("bomb");b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");
+  const nb=score>best;
+  if(nb){best=score;try{localStorage.setItem("bomb-squad-best",best)}catch(e){}$("best").textContent=best}
+  $("ovTitle").textContent="펑!";$("ovTitle").className="boom";
+  $("ovText").innerHTML=`폭탄 <b>${defused}개</b>를 해체하고 <b>${score}점</b>을 얻었어요.${nb&&score>0?" <b>최고 기록!</b>":""}<br>다시 도전해서 기록을 깨보세요.`;
+  $("start").textContent="다시 해체하기";
+  setTimeout(()=>{$("overlay").hidden=false;$("start").focus()},700);
+}
+
+document.addEventListener("keydown",e=>{
+  const k=KEYMAP[e.key];
+  if(k&&running){e.preventDefault();if(!e.repeat)press(k)}
+  else if((e.key==="Enter"||e.key===" ")&&!running&&!$("overlay").hidden&&document.activeElement!==$("start")&&document.activeElement!==$("sound")){e.preventDefault();start()}
+});
+$("pad").addEventListener("pointerdown",e=>{const b=e.target.closest("button");if(b){e.preventDefault();press(b.dataset.k)}});
+$("start").onclick=start;
+$("sound").onclick=()=>{sound=!sound;$("sound").textContent=sound?"소리 켜짐":"소리 꺼짐";$("sound").setAttribute("aria-pressed",sound)};
+seq=["U","U","D","D","L","R","L","R"];pos=3;renderCode();draw();
+</script>
+</body>
+</html>
